@@ -6,8 +6,12 @@ one page) and coding directives (GLSL-first retro looks, geometry/material
 disposal, flat data for the frontend, retry + timeout on all ingestors).
 
 Project status (2026-07-09): feature-complete, deployed, user-acceptance
-tested (all checks passed incl. 60fps with 1500 sats). Maintenance mode —
-don't propose features unprompted; sound tuning is user-approved as-is.
+tested (all checks passed incl. 60fps with 1500 sats; the D3 archive page
+passed the same day: hover accuracy, resize redraw, nav, data consistency).
+Maintenance mode — don't propose features unprompted; sound tuning is
+user-approved as-is. Remaining future-work candidates: full-LCARS theme
+toggle for the tactical view, pipeline pattern to a new data domain,
+quality fallback if low-fps reports ever arrive.
 
 ## Deployment & operations
 
