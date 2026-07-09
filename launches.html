@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ORBITAL RETRO // LAUNCH DIRECTORY</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Antonio:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./css/theme-b.css">
+</head>
+<body>
+
+<div class="elbow"></div>
+
+<header class="header-band">
+  <div class="band-seg wide"></div>
+  <div class="eq" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+  <h1 class="band-title">LAUNCH DIRECTORY 47-A</h1>
+  <div class="band-cap"></div>
+</header>
+
+<nav class="sidebar">
+  <a class="side-block c-blue" href="./index.html">TACTICAL</a>
+  <span class="side-block c-gold active">LAUNCH DIR</span>
+  <a class="side-block c-lavender" href="#apod">IMAGE DB</a>
+  <button class="side-block c-peach" id="raw-toggle" type="button">RAW FEED</button>
+  <span class="side-block c-peach rounded-bottom"></span>
+</nav>
+
+<main class="content">
+  <h2 class="section-head">UPCOMING LAUNCH OPERATIONS</h2>
+  <div class="table-scroll">
+    <div class="launch-grid" id="launch-grid">
+      <span class="head">T-MINUS</span>
+      <span class="head">MISSION</span>
+      <span class="head">VEHICLE</span>
+      <span class="head">PAD</span>
+      <span class="head">STATUS</span>
+    </div>
+  </div>
+
+  <section id="raw-section" hidden>
+    <h2 class="section-head">RAW TELEMETRY // LAUNCHES.JSON</h2>
+    <pre class="raw-pre" id="raw-pre"></pre>
+  </section>
+
+  <h2 class="section-head" id="apod">ASTRONOMY IMAGE OF THE DAY</h2>
+  <div class="apod-wrap" id="apod-wrap">
+    <div class="err">IMAGE DATABASE OFFLINE</div>
+  </div>
+</main>
+
+<script type="module" src="./js/launches.js"></script>
+</body>
+</html>

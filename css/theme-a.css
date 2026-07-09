@@ -1,0 +1,226 @@
+/* Orbital Retro — Theme A: "Targeting Computer"
+   Black vector void, phosphor green/red/cyan, monospace, CRT artifacts. */
+
+:root {
+  --c-bg: #000000;
+  --c-green: #33ff33;
+  --c-red: #ff3333;
+  --c-cyan: #00ffff;
+  --c-green-dim: rgba(51, 255, 51, 0.55);
+  --glow-color: var(--c-green);
+  --font-body: 'Share Tech Mono', monospace;
+  --font-display: 'VT323', monospace;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body { height: 100%; overflow: hidden; }
+
+body {
+  background: var(--c-bg);
+  color: var(--c-green);
+  font-family: var(--font-body);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+#scene-container { position: fixed; inset: 0; }
+#scene-container canvas { display: block; }
+
+.hidden { display: none !important; }
+
+/* ---- HUD grid (overlays only; panels never intercept the orbit drag) ---- */
+
+.hud {
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  display: grid;
+  grid-template-columns: 1fr minmax(300px, 26vw);
+  grid-template-rows: auto 1fr auto;
+  gap: 16px;
+  padding: 24px 28px;
+}
+
+.hud-header { grid-area: 1 / 1 / 2 / 2; justify-self: start; }
+#target-panel { grid-area: 1 / 2 / 2 / 3; justify-self: end; align-self: start; width: 100%; }
+.hud-footer { grid-area: 3 / 1 / 4 / 2; justify-self: start; align-self: end; }
+
+#radar-panel {
+  grid-area: 2 / 2 / 4 / 3;
+  justify-self: end;
+  align-self: end;
+  width: 100%;
+  max-width: 320px;
+  pointer-events: auto;
+}
+
+#radar-canvas {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  height: auto;
+  margin-top: 2px;
+  background: #000;
+  border: 1px solid rgba(51, 255, 51, 0.3);
+  cursor: crosshair;
+}
+
+.dim { color: var(--c-green-dim); }
+
+/* ---- Mode tabs (Theme A: angular, flat, glowing) ---- */
+
+.mode-tabs { display: flex; gap: 10px; margin-top: 10px; pointer-events: auto; }
+
+.tab {
+  background: none;
+  border: 1px solid var(--c-green-dim);
+  color: var(--c-green);
+  font-family: var(--font-body);
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 4px 14px;
+  cursor: pointer;
+  text-shadow: 0 0 5px var(--glow-color);
+}
+
+.tab:hover:not(:disabled) { border-color: var(--c-green); }
+
+.tab.active {
+  background: rgba(51, 255, 51, 0.15);
+  border-color: var(--c-green);
+  box-shadow: 0 0 8px rgba(51, 255, 51, 0.35);
+}
+
+.tab:disabled { opacity: 0.35; cursor: default; }
+
+/* ---- Projected object labels ---- */
+
+#label-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+}
+
+.obj-label {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: none;
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+  text-shadow: 0 0 5px currentColor;
+}
+
+.hud-panel {
+  position: relative;
+  background: rgba(0, 16, 0, 0.5);
+  border: 1px solid var(--c-green-dim);
+  padding: 12px 18px;
+  text-shadow: 0 0 5px var(--glow-color);
+  box-shadow: 0 0 12px rgba(51, 255, 51, 0.2), inset 0 0 14px rgba(51, 255, 51, 0.07);
+}
+
+h1 {
+  font-family: var(--font-display);
+  font-size: 34px;
+  font-weight: 400;
+  letter-spacing: 0.14em;
+  line-height: 1;
+}
+
+.panel-title {
+  font-family: var(--font-display);
+  font-size: 22px;
+  margin-bottom: 10px;
+  color: var(--c-cyan);
+  --glow-color: var(--c-cyan);
+  text-shadow: 0 0 5px var(--glow-color);
+}
+
+.small { font-size: 14px; min-height: 1.2em; margin-top: 6px; }
+
+.row {
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  gap: 10px;
+  font-size: 14px;
+  padding: 3px 0;
+}
+
+.lbl { color: var(--c-green-dim); }
+.val { min-height: 1.2em; }
+
+.alert {
+  color: var(--c-red);
+  --glow-color: var(--c-red);
+  text-shadow: 0 0 5px var(--glow-color);
+}
+
+.blink { animation: blink 1s steps(2, start) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+
+/* ---- Target-lock corner brackets, tracks the selected object ---- */
+
+#lock-brackets {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 58px;
+  height: 58px;
+  z-index: 6;
+  pointer-events: none;
+  color: var(--c-green);
+  filter: drop-shadow(0 0 4px currentColor);
+}
+
+.br { position: absolute; width: 15px; height: 15px; border: 0 solid currentColor; }
+.br-tl { top: 0; left: 0; border-top-width: 2px; border-left-width: 2px; }
+.br-tr { top: 0; right: 0; border-top-width: 2px; border-right-width: 2px; }
+.br-bl { bottom: 0; left: 0; border-bottom-width: 2px; border-left-width: 2px; }
+.br-br { bottom: 0; right: 0; border-bottom-width: 2px; border-right-width: 2px; }
+
+/* ---- Reusable CRT artifact classes (doc directive B3) ---- */
+
+.scanline::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0 2px,
+    rgba(0, 0, 0, 0.26) 2px 4px
+  );
+}
+
+.flicker { animation: phosphor-flicker 3.4s infinite; }
+@keyframes phosphor-flicker {
+  0%, 100% { opacity: 1; }
+  4%  { opacity: 0.96; }
+  5%  { opacity: 1; }
+  47% { opacity: 0.98; }
+  48% { opacity: 1; }
+  73% { opacity: 0.95; }
+  74% { opacity: 1; }
+}
+
+/* Full-screen tube: vignette + curvature. Sits above everything. */
+.crt {
+  position: fixed;
+  inset: 0;
+  z-index: 9;
+  pointer-events: none;
+  border-radius: 24px;
+}
+
+.crt::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at center, transparent 58%, rgba(0, 0, 0, 0.55) 100%);
+}
