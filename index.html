@@ -23,6 +23,7 @@
 <div class="hud flicker">
   <header class="hud-panel scanline hud-header">
     <h1>ORBITAL RETRO</h1>
+    <div id="stat-bar" class="stat-bar"></div>
     <div id="status-line" class="small"></div>
     <div id="sync-line" class="small dim"></div>
     <nav class="mode-tabs">
@@ -45,7 +46,21 @@
     <div class="small dim">RANGE: LUNAR DIST / LOG SCALE</div>
   </aside>
 
+  <aside id="legend-panel" class="hud-panel scanline hidden">
+    <div class="panel-title">// SAT CATALOG</div>
+    <div id="legend-rows"></div>
+    <div id="legend-note" class="small dim"></div>
+  </aside>
+
   <footer class="hud-panel scanline hud-footer">
+    <div id="time-controls" class="time-controls hidden">
+      <span class="lbl">MISSION TIME</span>
+      <button id="time-hold" class="tab" type="button">HOLD</button>
+      <button id="time-now" class="tab" type="button">NOW</button>
+      <input id="time-scrub" type="range" min="-86400" max="604800" step="600" value="0"
+             aria-label="Mission time offset">
+      <span id="time-readout" class="small"></span>
+    </div>
     <div id="footer-line" class="small"></div>
   </footer>
 </div>

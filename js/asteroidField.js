@@ -39,7 +39,7 @@ void main() {
 }`;
 
 const FRAGMENT = /* glsl */ `
-uniform float uTime;
+uniform float uFxTime;
 varying float vHazard;
 varying float vSeed;
 
@@ -50,7 +50,7 @@ void main() {
   float halo = smoothstep(0.5, 0.0, d) * 0.35;
   // hazardous contacts carry a targeting ring
   float ring = smoothstep(0.03, 0.0, abs(d - 0.36)) * vHazard * 0.9;
-  float flicker = 0.85 + 0.15 * sin(uTime * 22.0 + vSeed * 40.0);
+  float flicker = 0.85 + 0.15 * sin(uFxTime * 22.0 + vSeed * 40.0);
   vec3 col = mix(vec3(0.2, 1.0, 0.2), vec3(1.0, 0.25, 0.18), vHazard);
   float alpha = (core + halo + ring) * flicker;
   if (alpha < 0.02) discard;
@@ -92,6 +92,7 @@ export function createAsteroidField(data) {
     fragmentShader: FRAGMENT,
     uniforms: {
       uTime: { value: 0 },
+      uFxTime: { value: 0 },
       uPixelRatio: { value: Math.min(window.devicePixelRatio, 2) },
     },
     transparent: true,
@@ -108,8 +109,12 @@ export function createAsteroidField(data) {
     objects: data.objects,
     count: n,
 
-    update(time) {
-      material.uniforms.uTime.value = time;
+    // Orbit positions follow mission (sim) time so the scrubber and HOLD
+    // work; the phosphor flicker stays on wall time so a held frame still
+    // looks alive.
+    update(simTime, fxTime) {
+      material.uniforms.uTime.value = simTime;
+      material.uniforms.uFxTime.value = fxTime !== undefined ? fxTime : simTime;
     },
 
     setPixelRatio(pr) {

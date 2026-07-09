@@ -8,7 +8,7 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { createAsteroidField, createEnvironment } from './asteroidField.js';
 import { createSystemMap, createNeoMoon } from './systemMap.js';
-import { createSatellites } from './satellites.js';
+import { createSatellites, GROUP_COLORS } from './satellites.js';
 import { createFlyby } from './flyby.js';
 import { createRadar } from './radar.js';
 import { createLabelLayer } from './labels.js';
@@ -117,7 +117,16 @@ Promise.all([
 
     if (satData && satData.count) {
       sats = createSatellites(env.neoGroup, satData);
+      timeScale = satData.time_scale || timeScale;
+      buildLegend(sats);
     }
+
+    // Mission clock anchors to the satellite epoch (their mean anomalies
+    // are valid there); boot snapped to live NOW rather than the epoch.
+    const epochIso = (satData && satData.generated_at_utc) || neoData.generated_at_utc;
+    if (epochIso) missionEpochMs = Date.parse(epochIso);
+    setMissionOffset(0);
+    timeControls.classList.remove('hidden');
 
     neoStatusLine =
       `TRACKING ${neoData.count} OBJECTS > ${neoData.min_diameter_m}M // WINDOW ${neoData.window_start} - ${neoData.window_end}` +
@@ -125,8 +134,22 @@ Promise.all([
     hud.init(neoData);
     hud.status(neoStatusLine);
 
+    const hazardCount = neoData.buffers.hazard_flag.filter((f) => f > 0).length;
+    hud.stats([
+      { k: 'TRACKED', v: `${neoData.count} NEO` },
+      { k: 'HAZARD', v: String(hazardCount), cls: hazardCount ? 'alert' : '' },
+      ...(sats
+        ? [
+            { k: 'ACTIVE SATS', v: sats.catalogTotal.toLocaleString('en-US'), cls: 'cyan' },
+            { k: 'PLOTTED', v: sats.count.toLocaleString('en-US'), cls: 'cyan' },
+          ]
+        : []),
+      { k: 'SRC', v: sats ? 'NEOWS / HORIZONS / CELESTRAK' : 'NEOWS / HORIZONS' },
+    ]);
+
     // Debug/deep-links: ?lock=N pre-selects a contact, ?mode=system opens
-    // the map, ?body=mars pre-selects a system body.
+    // the map, ?body=mars pre-selects a system body, ?scrub=S offsets the
+    // mission clock by S real seconds, ?hold=1 freezes it.
     const params = new URLSearchParams(location.search);
     const lock = params.get('lock');
     if (lock !== null) selectNeo(Math.min(parseInt(lock, 10) || 0, field.count - 1));
@@ -137,6 +160,9 @@ Promise.all([
         selectBody(systemMap.bodies.findIndex((b) => b.name === bodyName.toLowerCase()));
       }
     }
+    const scrub = params.get('scrub');
+    if (scrub !== null) setMissionOffset(parseFloat(scrub) || 0);
+    if (params.get('hold') === '1') setHold(true);
   })
   .catch((err) => hud.fatal(`DATA LINK FAILURE // ${err.message}`));
 
@@ -171,6 +197,104 @@ soundTab.addEventListener('click', () => {
   renderSoundTab();
 });
 
+// ---- Mission clock: sim time drives all orbital motion; wall time keeps
+// the radar sweep and CRT flicker alive while mission time is held. The
+// scrubber value is a real-second offset from wall-clock NOW. ----
+
+let timeScale = 90; // overwritten by satellites.json time_scale
+let missionEpochMs = Date.now();
+let simTime = 0;
+let simRate = 1;
+let scrubbing = false;
+let readoutLast = '';
+
+const timeControls = document.getElementById('time-controls');
+const holdBtn = document.getElementById('time-hold');
+const scrubInput = document.getElementById('time-scrub');
+const readoutEl = document.getElementById('time-readout');
+
+const missionNowMs = () => missionEpochMs + simTime * timeScale * 1000;
+
+function setMissionOffset(offsetS) {
+  simTime = (Date.now() + offsetS * 1000 - missionEpochMs) / (1000 * timeScale);
+}
+
+function setHold(hold) {
+  simRate = hold ? 0 : 1;
+  holdBtn.textContent = hold ? 'RUN' : 'HOLD';
+  holdBtn.classList.toggle('active', hold);
+}
+
+holdBtn.addEventListener('click', () => {
+  sfx.mode();
+  setHold(simRate !== 0);
+});
+
+document.getElementById('time-now').addEventListener('click', () => {
+  sfx.mode();
+  setMissionOffset(0);
+  setHold(false);
+});
+
+scrubInput.addEventListener('pointerdown', () => {
+  scrubbing = true;
+});
+window.addEventListener('pointerup', () => {
+  scrubbing = false;
+});
+scrubInput.addEventListener('input', () => {
+  setMissionOffset(parseFloat(scrubInput.value) || 0);
+});
+
+function fmtOffset(s) {
+  const sign = s < 0 ? '-' : '+';
+  s = Math.abs(s);
+  const d = Math.floor(s / 86400);
+  const h = Math.floor(s / 3600) % 24;
+  const m = Math.floor(s / 60) % 60;
+  if (d) return `${sign}${d}D${String(h).padStart(2, '0')}H`;
+  if (h) return `${sign}${h}H${String(m).padStart(2, '0')}M`;
+  return `${sign}${m}M`;
+}
+
+// Per-frame; writes the DOM only when the displayed text changes.
+function updateTimeUI() {
+  const nowMs = missionNowMs();
+  const offsetS = (nowMs - Date.now()) / 1000;
+  if (!scrubbing) {
+    scrubInput.value = String(Math.round(Math.max(-86400, Math.min(604800, offsetS))));
+  }
+  const stamp = new Date(nowMs).toISOString().slice(0, 16).replace('T', ' ');
+  const drift = Math.abs(offsetS) >= 60 ? ` // ${fmtOffset(offsetS)}` : '';
+  const text = `${stamp}Z${drift} // ${simRate ? `RATE ${timeScale}X` : 'HOLD'}`;
+  if (text !== readoutLast) {
+    readoutLast = text;
+    readoutEl.textContent = text;
+  }
+}
+
+function buildLegend(s) {
+  const wrap = document.getElementById('legend-rows');
+  s.groups.forEach((g, i) => {
+    if (!g.catalog && !g.plotted) return; // group fetch failed this refresh
+    const row = document.createElement('div');
+    row.className = 'legend-row';
+    const dot = document.createElement('span');
+    dot.className = 'legend-dot';
+    dot.style.color = (GROUP_COLORS[i] || GROUP_COLORS[0]).hex;
+    const name = document.createElement('span');
+    name.textContent = g.label;
+    const count = document.createElement('span');
+    count.className = 'legend-count';
+    count.textContent = g.catalog.toLocaleString('en-US');
+    row.append(dot, name, count);
+    wrap.appendChild(row);
+  });
+  document.getElementById('legend-note').textContent =
+    `PLOT ${s.count.toLocaleString('en-US')} OF ${s.catalogTotal.toLocaleString('en-US')} // CELESTRAK GP`;
+  document.getElementById('legend-panel').classList.remove('hidden');
+}
+
 store.subscribe((s) => {
   if (s.mode === mode) return;
   camState[mode].pos.copy(camera.position);
@@ -182,6 +306,8 @@ store.subscribe((s) => {
   env.neoGroup.visible = neo;
   if (systemMap) systemMap.group.visible = !neo;
   document.getElementById('radar-panel').classList.toggle('hidden', !neo);
+  if (sats) document.getElementById('legend-panel').classList.toggle('hidden', !neo);
+  if (field) timeControls.classList.toggle('hidden', !neo);
   document.getElementById('tab-neo').classList.toggle('active', neo);
   document.getElementById('tab-system').classList.toggle('active', !neo);
   labels.hideAll();
@@ -283,7 +409,7 @@ renderer.domElement.addEventListener('pointerup', (e) => {
   if (Math.hypot(e.clientX - downX, e.clientY - downY) > 5) return; // orbit drag
 
   if (mode === 'neo' && field) {
-    const t = clock.elapsedTime;
+    const t = simTime;
     let best = -1;
     let bestDist = PICK_RADIUS_PX;
     for (let i = 0; i < field.count; i++) {
@@ -368,20 +494,24 @@ const clock = new THREE.Clock();
 function animate() {
   requestAnimationFrame(animate);
   const dt = clock.getDelta();
-  const t = clock.elapsedTime;
+  const wallT = clock.elapsedTime;
+  simTime += dt * simRate;
   controls.update();
-  env.update(dt);
+  env.update(dt * simRate);
   if (mode === 'neo') {
-    if (field) field.update(t);
-    if (sats) sats.update(t);
-    if (radar) radar.update(t);
-    flybyPos = flyby.update(t);
+    if (field) {
+      field.update(simTime, wallT);
+      updateTimeUI();
+    }
+    if (sats) sats.update(simTime);
+    if (radar) radar.update(simTime, wallT);
+    flybyPos = flyby.update(simTime);
     hud.tickCountdown();
   } else if (systemMap) {
     systemMap.update(dt);
     flybyPos = null;
   }
-  updateBrackets(t);
+  updateBrackets(simTime);
   updateLabels();
   composer.render();
 }

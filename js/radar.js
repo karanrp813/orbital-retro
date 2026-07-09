@@ -103,8 +103,10 @@ export function createRadar({ canvas, field, data, onSelect }) {
     return [c + tmp.x * worldScale(), c + tmp.z * worldScale()];
   }
 
-  function drawContacts(t) {
-    const s = sweepAngle(t);
+  // Echoes live at sim-time positions, but the sweep that reveals them runs
+  // on wall time so the scope keeps scanning while mission time is held.
+  function drawContacts(t, sweepT) {
+    const s = sweepAngle(sweepT);
     for (let i = 0; i < field.count; i++) {
       field.getPosition(i, t, tmp);
       const a = Math.atan2(tmp.z, tmp.x);
@@ -173,16 +175,17 @@ export function createRadar({ canvas, field, data, onSelect }) {
   resize();
 
   return {
-    update(t) {
+    update(t, sweepT) {
       if (!size) resize();
       if (!size) return;
+      if (sweepT === undefined) sweepT = t;
       epochOffset = performance.now() / 1000 - t;
       // Phosphor decay: fade instead of clear.
       ctx.fillStyle = 'rgba(0, 8, 0, 0.10)';
       ctx.fillRect(0, 0, size, size);
       drawStatic();
-      drawSweep(t);
-      drawContacts(t);
+      drawSweep(sweepT);
+      drawContacts(t, sweepT);
       drawSelection(t);
     },
     setSelected(i) {

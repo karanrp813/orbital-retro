@@ -72,6 +72,24 @@ export const hud = {
     typeInto($('status-line'), 'ACQUIRING DATA LINK...', 30);
   },
 
+  // Header stat strip: items are { k, v, cls? }.
+  stats(items) {
+    const bar = $('stat-bar');
+    bar.innerHTML = '';
+    for (const it of items) {
+      const stat = document.createElement('span');
+      stat.className = it.cls ? `stat ${it.cls}` : 'stat';
+      const k = document.createElement('span');
+      k.className = 'stat-k';
+      k.textContent = it.k;
+      const v = document.createElement('span');
+      v.className = 'stat-v';
+      stat.append(k, v);
+      bar.appendChild(stat);
+      typeInto(v, it.v, 30);
+    }
+  },
+
   status(text) {
     typeInto($('status-line'), text, 45);
   },

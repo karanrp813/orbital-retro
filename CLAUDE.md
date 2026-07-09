@@ -13,6 +13,16 @@ user-approved as-is. Remaining future-work candidates: full-LCARS theme
 toggle for the tactical view, pipeline pattern to a new data domain,
 quality fallback if low-fps reports ever arrive.
 
+2026-07-09 (later): SENTRY-reel-inspired upgrade (reference reel in agent
+memory): multi-constellation satellite catalog (6 CelesTrak groups, per-
+group colors + legend panel), mission-time scrubber (HOLD / NOW / ±offset
+slider in the footer), header stat bar. Theme A was deliberately loosened
+by user decision: one hue per constellation (blue/white/amber beyond the
+canonical green/red/cyan) is allowed on the tactical view. User-verified
+same day: fps holds at 3,546 sats, scrubber feel approved, HOLD/NOW,
+deep links and regression sweep all pass. If low-fps reports ever arrive,
+the satellite plot caps in fetch_satellites.py GROUPS are the first knob.
+
 ## Deployment & operations
 
 - Live: https://karanrp813.github.io/orbital-retro/ (repo karanrp813/orbital-retro)
@@ -41,7 +51,10 @@ Gotchas: headless Edge enforces ~500px minimum window width (narrow shots
 get cropped, not resized — probe with a page dumping innerWidth if unsure);
 reused profiles cache CSS. Deep links exist for states needing a click:
 `?lock=N` (NEO contact), `?mode=system`, `?body=mars` (body scan),
-`launches.html#raw`. Audio is untestable headlessly.
+`?scrub=S` (mission clock offset by S real seconds), `?hold=1` (freeze
+mission clock), `launches.html#raw`. Audio is untestable headlessly.
+Under --virtual-time-budget the mission clock races ahead (~+22M for a
+15s budget) — that offset in the readout is the virtual clock, not a bug.
 
 Full acceptance standards (data integrity, fps, interaction, sound, mobile,
 cross-browser) are in the 2026-07-09 session; key bars: 60fps sustained,
@@ -56,7 +69,7 @@ MISS DIST LD, radar click selects same object as 3D.
 | fetch_ephemeris.py | JPL Horizons (keyless) | ephemeris.json | ELEMENTS query (TA given → no Kepler solve for position); orbit polylines sampled uniform-E |
 | fetch_launches.py | Launch Library 2 (keyless) | launches.json | r/SpaceX API is frozen since ~2022 — never use it. LL2 free tier ~15 req/hr: scheduled only |
 | fetch_apod.py | NASA APOD (key) | apod.json | thumbs=true for video days |
-| fetch_satellites.py | CelesTrak GP (keyless) | satellites.json | OPTIONAL in refresh_all (failure never blocks deploy); circular approx from mean elements; max 1 group fetch/hour |
+| fetch_satellites.py | CelesTrak GP (keyless) | satellites.json | OPTIONAL in refresh_all (failure never blocks deploy); circular approx from mean elements; 6 groups per run (starlink/oneweb/gnss/weather/geo/stations, 2s apart, one group's failure skips only that group); over-cap groups subsampled by stride, catalog counts kept for the legend; max 1 fetch of the same group/hour |
 | fetch_history.py | JPL SSD CAD (keyless) | neo_history.json | OPTIONAL; 180d of close approaches; diameter estimated from H (albedo 0.14); CAD has NO fields param — index by response's fields array |
 | common.py | — | — | shared Retry session (5 tries, backoff 1.5, respects Retry-After) + atomic write (tmp + os.replace) |
 | refresh_all.py | — | — | scheduled-task/CI entry point; paths resolved from own location; OPTIONAL set for enhancement layers |
@@ -72,13 +85,26 @@ MISS DIST LD, radar click selects same object as 3D.
 - **Satellite scale contract**: Earth mesh radius 12 units ↔ 6371 km;
   time_scale 90× real angular velocity. Changing the Earth mesh radius in
   asteroidField.js requires regenerating satellites.json.
+- **Satellite groups**: buffers.group holds a per-sat index into the
+  payload's `groups` array; index order is fixed by GROUPS in
+  fetch_satellites.py and by GROUP_COLORS in satellites.js — change both
+  together. `catalog` vs `plotted` per group feeds the legend's honesty
+  note. Frontend falls back to a single cyan group on legacy JSON.
+- **Mission clock**: simTime (scene s) anchors to the satellites.json
+  epoch; real time = epoch + simTime × time_scale. Everything orbital
+  (field, sats, radar echoes, flyby, picking, brackets) reads simTime;
+  radar sweep + CRT flicker read wall time so HOLD still looks alive.
+  T-MINUS countdown stays on real Date.now() — scrubbing never lies about
+  the actual approach.
 - **NEO scene scale**: FIELD_INNER_R=28, SPAN=88 (exported from
   asteroidField.js); radar and moon placement invert the same log mapping.
 
 ## Frontend architecture (`js/`)
 
 - `main.js` owns: render loop (ONE rAF + ONE THREE.Clock drives everything,
-  including the 2D radar canvas), mode store subscription (all mode
+  including the 2D radar canvas), the mission clock (simTime/simRate +
+  HOLD/NOW/scrub controls, readout, sat legend, header stat bar DOM), mode
+  store subscription (all mode
   side-effects live in that one subscriber), dual selection state
   (`selected` = NEO index, `selectedBody` = system body index, each mode
   remembers its own camera framing), picking, deep links, sfx wiring
@@ -98,8 +124,10 @@ MISS DIST LD, radar click selects same object as 3D.
 - `hud.js`: type-out effect with cancellation tokens; `renderPanel(title,
   rows)` generic target panel (NEO lock vs body scan); per-second T-MINUS
   countdown (writes only when displayed second changes).
-- `satellites.js`: 1500-sat Points layer, motion in vertex shader from mean
-  elements; added to env.neoGroup so mode visibility is automatic.
+- `satellites.js`: multi-constellation Points layer (~3.5k sats), motion in
+  vertex shader from mean elements, per-sat constellation color as a vertex
+  attribute (GROUP_COLORS export also feeds the DOM legend); added to
+  env.neoGroup so mode visibility is automatic.
 - `sfx.js`: Web Audio square blips (lock/unlock/mode/toggle), lazy
   AudioContext, SND tab persisted in localStorage key `orbital-retro-sfx`.
 - `state.js`: minimal observable store; `labels.js`: projected DOM labels.
