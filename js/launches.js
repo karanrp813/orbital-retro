@@ -23,6 +23,10 @@ function cell(className, text) {
 }
 
 function renderLaunches(data) {
+  if (data.generated_at_utc) {
+    document.getElementById('launch-sync').textContent =
+      `DATA SYNC ${data.generated_at_utc.slice(0, 16).replace('T', ' ')} UTC`;
+  }
   for (const l of data.launches) {
     const tminus = cell('cell tminus', fmtCountdown(l.net_epoch_ms));
     countdowns.push({ el: tminus, epochMs: l.net_epoch_ms });

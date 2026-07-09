@@ -37,6 +37,10 @@ export const hud = {
       `TRACKING ${data.count} OBJECTS > ${data.min_diameter_m}M // WINDOW ${data.window_start} - ${data.window_end}`,
       45
     );
+    if (data.generated_at_utc) {
+      // Staleness must be self-evident: if the daily refresh dies, this shows it.
+      typeInto($('sync-line'), `LAST SYNC ${data.generated_at_utc.slice(0, 16).replace('T', ' ')} UTC`, 60);
+    }
     typeInto($('footer-line'), 'L-DRAG: ORBIT // WHEEL: ZOOM // CLICK CONTACT: TARGET LOCK', 55);
   },
 

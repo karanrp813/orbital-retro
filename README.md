@@ -4,6 +4,13 @@ A real-time space tracking dashboard in a 1970s/80s retro-futuristic shell:
 Star Wars targeting-computer vectors for the tactical views, Star Trek LCARS
 for the launch directory. All live data, no build step.
 
+**Live: https://karanrp813.github.io/orbital-retro/** — self-updating daily
+via GitHub Actions.
+
+| NEO tracking | System map | Launch directory |
+|---|---|---|
+| ![NEO track](docs/neo-track.png) | ![System map](docs/system-map.png) | ![Launch directory](docs/launch-directory.png) |
+
 ## Surfaces
 
 | Page | Theme | Content |
