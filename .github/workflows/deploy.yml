@@ -37,8 +37,9 @@ jobs:
         env:
           NASA_API_KEY: ${{ secrets.NASA_API_KEY }}
         run: |
-          python pipeline/refresh_all.py
+          python pipeline/refresh_all.py && rc=0 || rc=$?
           cat data/refresh.log
+          exit $rc
 
       - uses: actions/configure-pages@v5
 
