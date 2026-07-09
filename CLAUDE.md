@@ -53,6 +53,7 @@ MISS DIST LD, radar click selects same object as 3D.
 | fetch_launches.py | Launch Library 2 (keyless) | launches.json | r/SpaceX API is frozen since ~2022 — never use it. LL2 free tier ~15 req/hr: scheduled only |
 | fetch_apod.py | NASA APOD (key) | apod.json | thumbs=true for video days |
 | fetch_satellites.py | CelesTrak GP (keyless) | satellites.json | OPTIONAL in refresh_all (failure never blocks deploy); circular approx from mean elements; max 1 group fetch/hour |
+| fetch_history.py | JPL SSD CAD (keyless) | neo_history.json | OPTIONAL; 180d of close approaches; diameter estimated from H (albedo 0.14); CAD has NO fields param — index by response's fields array |
 | common.py | — | — | shared Retry session (5 tries, backoff 1.5, respects Retry-After) + atomic write (tmp + os.replace) |
 | refresh_all.py | — | — | scheduled-task/CI entry point; paths resolved from own location; OPTIONAL set for enhancement layers |
 
@@ -100,6 +101,10 @@ MISS DIST LD, radar click selects same object as 3D.
 - `state.js`: minimal observable store; `labels.js`: projected DOM labels.
 - `launches.js` + `theme-b.css`: LCARS page — flat, no shadows/gradients,
   Antonio font, countdowns tick per second, raw-feed toggle panel.
+- `history.js` + `history.html`: D3 (d3@7 esm via jsdelivr) scatter timeline,
+  Theme A. Log Y in LD with the 1 LD lunar line; red = est diameter >= 140m;
+  Delaunay nearest-point hover; ResizeObserver-driven redraws. Third tab
+  "ARCHIVE" on index; blue ARCHIVE pill in the LCARS sidebar.
 
 ## Hard-won gotchas
 
@@ -110,6 +115,10 @@ MISS DIST LD, radar click selects same object as 3D.
   opacity down (earth is 0.28) rather than bloom strength first.
 - LL2 names read "Vehicle | Mission" — split on `|` for display.
 - NeoWs feed caps at 7 inclusive days per request; numbers arrive as strings.
+- Headless Edge reports innerHeight ~93px less than --window-size while
+  fixed-position elements and the screenshot surface use the full height —
+  flow-layout pages look like they have dead space in screenshots when they
+  don't. Trust an element-size probe over the screenshot.
 
 ## Candidate future work (only if the user asks)
 

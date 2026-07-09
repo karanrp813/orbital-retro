@@ -209,6 +209,35 @@ h1 {
   74% { opacity: 1; }
 }
 
+/* ---- Archive page (D3 timeline) ---- */
+
+.archive-wrap {
+  position: relative;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 24px 28px;
+  height: 100vh;
+}
+
+.chart-panel { flex: 1; display: flex; flex-direction: column; min-height: 0; gap: 8px; }
+#chart { flex: 1; min-height: 0; }
+#chart svg { display: block; }
+
+.axis text { fill: var(--c-green); font-family: var(--font-body); font-size: 11px; letter-spacing: 0.05em; }
+.axis path, .axis line { stroke: rgba(51, 255, 51, 0.4); }
+.gridline { stroke: rgba(51, 255, 51, 0.1); }
+.axis-label { fill: var(--c-green-dim); font-family: var(--font-body); font-size: 11px; letter-spacing: 0.1em; }
+.moon-line { stroke: var(--c-cyan); stroke-dasharray: 6 4; stroke-width: 1; }
+.moon-label { fill: var(--c-cyan); font-family: var(--font-body); font-size: 11px; letter-spacing: 0.1em; }
+.crosshair { stroke: rgba(0, 255, 255, 0.4); stroke-dasharray: 2 3; }
+
+a.tab { text-decoration: none; display: inline-block; }
+
+#tooltip { position: fixed; z-index: 7; pointer-events: none; max-width: 300px; }
+#tooltip .tt-name { color: var(--c-cyan); --glow-color: var(--c-cyan); text-shadow: 0 0 5px var(--glow-color); }
+
 /* ---- Small-screen fallback: the HUD grid needs desktop width ---- */
 
 #small-screen { display: none; }

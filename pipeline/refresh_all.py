@@ -22,10 +22,11 @@ SCRIPTS = [
     ("fetch_launches.py", ["--output", os.path.join(DATA_DIR, "launches.json")]),
     ("fetch_apod.py", ["--output", os.path.join(DATA_DIR, "apod.json")]),
     ("fetch_satellites.py", ["--output", os.path.join(DATA_DIR, "satellites.json")]),
+    ("fetch_history.py", ["--output", os.path.join(DATA_DIR, "neo_history.json")]),
 ]
 
 # Enhancement layers: their failure is logged but never blocks a deploy.
-OPTIONAL = {"fetch_satellites.py"}
+OPTIONAL = {"fetch_satellites.py", "fetch_history.py"}
 
 
 def trim_log() -> None:

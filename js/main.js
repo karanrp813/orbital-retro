@@ -154,6 +154,10 @@ document.getElementById('tab-launches').addEventListener('click', () => {
   sfx.mode();
   location.href = './launches.html';
 });
+document.getElementById('tab-archive').addEventListener('click', () => {
+  sfx.mode();
+  location.href = './history.html';
+});
 
 const soundTab = document.getElementById('tab-sound');
 function renderSoundTab() {

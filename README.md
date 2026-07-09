@@ -15,8 +15,9 @@ via GitHub Actions.
 
 | Page | Theme | Content |
 |---|---|---|
-| `index.html` | A — Targeting Computer | 3D NEO field (Three.js), tactical PPI radar, solar-system map |
+| `index.html` | A — Targeting Computer | 3D NEO field (Three.js), tactical PPI radar, solar-system map, Starlink shell |
 | `launches.html` | B — LCARS | Upcoming launches with live countdowns, NASA APOD, raw feed viewer |
+| `history.html` | A — Targeting Computer | D3 timeline of 180 days of close approaches vs. the lunar-orbit line |
 
 Deep links: `?lock=N` (pre-select NEO contact N), `?mode=system` (open the
 system map), `?body=mars` (body scan a planet), `launches.html#raw` (open
@@ -44,6 +45,7 @@ A Windows scheduled task ("Orbital Retro Data Refresh", daily 09:00) runs
 | `pipeline/fetch_launches.py` | Launch Library 2 (keyless, ~15 req/hr free) | `data/launches.json` |
 | `pipeline/fetch_apod.py` | NASA APOD (needs `NASA_API_KEY`) | `data/apod.json` |
 | `pipeline/fetch_satellites.py` | CelesTrak GP elements (keyless, optional layer) | `data/satellites.json` |
+| `pipeline/fetch_history.py` | JPL SSD CAD close approaches (keyless, optional layer) | `data/neo_history.json` |
 
 `data/` is gitignored — regenerate it with `refresh_all.py` after cloning.
 
