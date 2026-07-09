@@ -8,6 +8,7 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { createAsteroidField, createEnvironment } from './asteroidField.js';
 import { createSystemMap, createNeoMoon } from './systemMap.js';
+import { createFlyby } from './flyby.js';
 import { createRadar } from './radar.js';
 import { createLabelLayer } from './labels.js';
 import { createStore } from './state.js';
@@ -59,6 +60,9 @@ composer.addPass(new OutputPass());
 const store = createStore({ mode: 'neo' });
 const labels = createLabelLayer();
 const env = createEnvironment(scene);
+const flyby = createFlyby(scene);
+labels.add('cpa', '', 'var(--c-cyan)');
+let flybyPos = null;
 
 let field = null;
 let radar = null;
@@ -142,11 +146,13 @@ store.subscribe((s) => {
     if (selected >= 0 && field) {
       hud.showTarget(field.objects[selected]);
       brackets.classList.remove('hidden');
+      flyby.setTarget(selected, field);
     }
     if (neoStatusLine) hud.status(neoStatusLine);
   } else {
     hud.clearTarget();
     brackets.classList.add('hidden');
+    flyby.setTarget(-1, null);
     if (systemMap) {
       hud.status(`HELIOCENTRIC PLOT // ${systemMap.bodies.length} BODIES // LOG-COMPRESSED RADII`);
     }
@@ -160,6 +166,8 @@ store.subscribe((s) => {
 function selectIndex(i) {
   selected = i;
   if (radar) radar.setSelected(i);
+  flyby.setTarget(i, field);
+  labels.setText('cpa', flyby.cpaText());
   if (i >= 0 && field) {
     const obj = field.objects[i];
     hud.showTarget(obj);
@@ -226,6 +234,9 @@ function updateBrackets(t) {
 function updateLabels() {
   if (mode === 'neo') {
     if (moon) labels.place('luna', worldToScreen(moon.pos));
+    let cpaScreen = flybyPos ? worldToScreen(flybyPos) : null;
+    if (cpaScreen) cpaScreen = [cpaScreen[0], cpaScreen[1] + 46];
+    labels.place('cpa', cpaScreen);
   } else if (systemMap) {
     for (const b of systemMap.bodies) labels.place(b.name, worldToScreen(b.pos));
   }
@@ -244,6 +255,7 @@ window.addEventListener('beforeunload', () => {
   if (field) field.dispose();
   if (systemMap) systemMap.dispose();
   if (moon) moon.dispose();
+  flyby.dispose();
   env.dispose();
   renderer.dispose();
 });
@@ -262,8 +274,11 @@ function animate() {
       updateBrackets(t);
     }
     if (radar) radar.update(t);
+    flybyPos = flyby.update(t);
+    hud.tickCountdown();
   } else if (systemMap) {
     systemMap.update(dt);
+    flybyPos = null;
   }
   updateLabels();
   composer.render();

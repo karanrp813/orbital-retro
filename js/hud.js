@@ -16,6 +16,20 @@ function typeInto(el, text, cps = 60) {
   step();
 }
 
+let countdownEpoch = null;
+let countdownLast = '';
+
+function fmtTMinus(epochMs) {
+  let delta = epochMs - Date.now();
+  const sign = delta < 0 ? 'T+' : 'T-';
+  delta = Math.abs(delta);
+  const days = Math.floor(delta / 86400000);
+  const hh = String(Math.floor(delta / 3600000) % 24).padStart(2, '0');
+  const mm = String(Math.floor(delta / 60000) % 60).padStart(2, '0');
+  const ss = String(Math.floor(delta / 1000) % 60).padStart(2, '0');
+  return `${sign} ${days}D ${hh}:${mm}:${ss}`;
+}
+
 export const hud = {
   init(data) {
     typeInto(
@@ -55,9 +69,22 @@ export const hud = {
     hz.classList.toggle('alert', o.is_hazardous);
     hz.classList.toggle('blink', o.is_hazardous);
     typeInto(hz, o.is_hazardous ? 'POTENTIALLY HAZARDOUS' : 'NEGATIVE', 45);
+    countdownEpoch = o.approach_epoch_ms;
+    countdownLast = '';
   },
 
   clearTarget() {
     $('target-panel').classList.add('hidden');
+    countdownEpoch = null;
+  },
+
+  // Called every frame; writes only when the displayed second changes.
+  tickCountdown() {
+    if (!countdownEpoch) return;
+    const text = fmtTMinus(countdownEpoch);
+    if (text !== countdownLast) {
+      countdownLast = text;
+      $('t-tminus').textContent = text;
+    }
   },
 };

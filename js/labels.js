@@ -13,6 +13,10 @@ export function createLabelLayer(rootId = 'label-layer') {
       root.appendChild(el);
       items.set(id, el);
     },
+    setText(id, text) {
+      const el = items.get(id);
+      if (el) el.textContent = text;
+    },
     place(id, screen) {
       const el = items.get(id);
       if (!el) return;
