@@ -19,7 +19,8 @@ via GitHub Actions.
 | `launches.html` | B — LCARS | Upcoming launches with live countdowns, NASA APOD, raw feed viewer |
 
 Deep links: `?lock=N` (pre-select NEO contact N), `?mode=system` (open the
-system map), `launches.html#raw` (open the raw telemetry panel).
+system map), `?body=mars` (body scan a planet), `launches.html#raw` (open
+the raw telemetry panel). The SND tab toggles terminal audio cues.
 
 ## Running
 
@@ -42,6 +43,7 @@ A Windows scheduled task ("Orbital Retro Data Refresh", daily 09:00) runs
 | `pipeline/fetch_ephemeris.py` | JPL Horizons (keyless) | `data/ephemeris.json` |
 | `pipeline/fetch_launches.py` | Launch Library 2 (keyless, ~15 req/hr free) | `data/launches.json` |
 | `pipeline/fetch_apod.py` | NASA APOD (needs `NASA_API_KEY`) | `data/apod.json` |
+| `pipeline/fetch_satellites.py` | CelesTrak GP elements (keyless, optional layer) | `data/satellites.json` |
 
 `data/` is gitignored — regenerate it with `refresh_all.py` after cloning.
 

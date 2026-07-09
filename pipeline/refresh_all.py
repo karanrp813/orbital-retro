@@ -21,7 +21,11 @@ SCRIPTS = [
     ("fetch_ephemeris.py", ["--output", os.path.join(DATA_DIR, "ephemeris.json")]),
     ("fetch_launches.py", ["--output", os.path.join(DATA_DIR, "launches.json")]),
     ("fetch_apod.py", ["--output", os.path.join(DATA_DIR, "apod.json")]),
+    ("fetch_satellites.py", ["--output", os.path.join(DATA_DIR, "satellites.json")]),
 ]
+
+# Enhancement layers: their failure is logged but never blocks a deploy.
+OPTIONAL = {"fetch_satellites.py"}
 
 
 def trim_log() -> None:
@@ -55,7 +59,7 @@ def main() -> int:
             log.write(proc.stderr)
             log.write(f"--- {script} exit {proc.returncode}\n")
             # exit 2 = valid-but-empty output; not a failure
-            if proc.returncode not in (0, 2):
+            if proc.returncode not in (0, 2) and script not in OPTIONAL:
                 failures.append(script)
         log.write(f"=== done, failures: {failures or 'none'} ===\n")
     return 1 if failures else 0

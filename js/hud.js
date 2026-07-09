@@ -1,4 +1,5 @@
-// HUD readouts with the Theme A "type-out" data effect.
+// HUD readouts with the Theme A "type-out" data effect. The target panel is
+// generic rows so it can present NEO contacts and system-map bodies alike.
 
 const $ = (id) => document.getElementById(id);
 
@@ -17,6 +18,7 @@ function typeInto(el, text, cps = 60) {
 }
 
 let countdownEpoch = null;
+let countdownEl = null;
 let countdownLast = '';
 
 function fmtTMinus(epochMs) {
@@ -28,6 +30,28 @@ function fmtTMinus(epochMs) {
   const mm = String(Math.floor(delta / 60000) % 60).padStart(2, '0');
   const ss = String(Math.floor(delta / 1000) % 60).padStart(2, '0');
   return `${sign} ${days}D ${hh}:${mm}:${ss}`;
+}
+
+// rows: array of { l, v, cls?, live? } — `live` marks the countdown value.
+function renderPanel(title, rows) {
+  $('target-panel').classList.remove('hidden');
+  $('panel-title').textContent = title;
+  const wrap = $('panel-rows');
+  wrap.innerHTML = '';
+  countdownEl = null;
+  for (const row of rows) {
+    const div = document.createElement('div');
+    div.className = 'row';
+    const lbl = document.createElement('span');
+    lbl.className = 'lbl';
+    lbl.textContent = row.l;
+    const val = document.createElement('span');
+    val.className = row.cls ? `val ${row.cls}` : 'val';
+    div.append(lbl, val);
+    wrap.appendChild(div);
+    if (row.live) countdownEl = val;
+    else typeInto(val, row.v, 60);
+  }
 }
 
 export const hud = {
@@ -59,22 +83,42 @@ export const hud = {
   },
 
   showTarget(o) {
-    $('target-panel').classList.remove('hidden');
-    typeInto($('t-name'), o.designation_label, 35);
-    typeInto($('t-diam'), `${o.diameter_min_m} - ${o.diameter_max_m} M`, 70);
-    typeInto($('t-vel'), `${o.velocity_kps} KM/S`, 70);
-    typeInto(
-      $('t-miss'),
-      `${Math.round(o.miss_distance_km).toLocaleString('en-US')} KM (${o.miss_distance_lunar} LD)`,
-      70
-    );
-    typeInto($('t-date'), o.approach_date, 70);
-    const hz = $('t-hazard');
-    hz.classList.toggle('alert', o.is_hazardous);
-    hz.classList.toggle('blink', o.is_hazardous);
-    typeInto(hz, o.is_hazardous ? 'POTENTIALLY HAZARDOUS' : 'NEGATIVE', 45);
+    renderPanel('// TARGET LOCK', [
+      { l: 'DESIG', v: o.designation_label },
+      { l: 'DIAMETER', v: `${o.diameter_min_m} - ${o.diameter_max_m} M` },
+      { l: 'VELOCITY', v: `${o.velocity_kps} KM/S` },
+      {
+        l: 'MISS DIST',
+        v: `${Math.round(o.miss_distance_km).toLocaleString('en-US')} KM (${o.miss_distance_lunar} LD)`,
+      },
+      { l: 'APPROACH', v: o.approach_date },
+      { l: 'T-MINUS', v: '', live: true },
+      {
+        l: 'HAZARD',
+        v: o.is_hazardous ? 'POTENTIALLY HAZARDOUS' : 'NEGATIVE',
+        cls: o.is_hazardous ? 'alert blink' : '',
+      },
+      { l: 'SRC', v: 'NASA NEOWS' },
+    ]);
     countdownEpoch = o.approach_epoch_ms;
     countdownLast = '';
+  },
+
+  showBody(info, distAu) {
+    const rows = [
+      { l: 'DESIG', v: info.label },
+      { l: 'RADIUS', v: `${info.radius_km.toLocaleString('en-US')} KM` },
+    ];
+    if (info.a_au != null) rows.push({ l: 'SEMI-MAJ', v: `${info.a_au.toFixed(4)} AU` });
+    if (info.e != null) rows.push({ l: 'ECCENTR', v: `${info.e}` });
+    if (info.inc_deg != null) rows.push({ l: 'INCLIN', v: `${info.inc_deg} DEG` });
+    if (info.period_days != null) rows.push({ l: 'PERIOD', v: `${info.period_days.toLocaleString('en-US')} D` });
+    rows.push(
+      { l: 'RANGE', v: `${distAu.toFixed(4)} AU (HELIO)` },
+      { l: 'SRC', v: 'JPL HORIZONS' }
+    );
+    renderPanel('// BODY SCAN', rows);
+    countdownEpoch = null;
   },
 
   clearTarget() {
@@ -84,11 +128,11 @@ export const hud = {
 
   // Called every frame; writes only when the displayed second changes.
   tickCountdown() {
-    if (!countdownEpoch) return;
+    if (!countdownEpoch || !countdownEl) return;
     const text = fmtTMinus(countdownEpoch);
     if (text !== countdownLast) {
       countdownLast = text;
-      $('t-tminus').textContent = text;
+      countdownEl.textContent = text;
     }
   },
 };

@@ -8,10 +8,12 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { createAsteroidField, createEnvironment } from './asteroidField.js';
 import { createSystemMap, createNeoMoon } from './systemMap.js';
+import { createSatellites } from './satellites.js';
 import { createFlyby } from './flyby.js';
 import { createRadar } from './radar.js';
 import { createLabelLayer } from './labels.js';
 import { createStore } from './state.js';
+import { sfx } from './sfx.js';
 import { hud } from './hud.js';
 
 const container = document.getElementById('scene-container');
@@ -62,15 +64,17 @@ const labels = createLabelLayer();
 const env = createEnvironment(scene);
 const flyby = createFlyby(scene);
 labels.add('cpa', '', 'var(--c-cyan)');
-let flybyPos = null;
 
 let field = null;
 let radar = null;
 let systemMap = null;
 let moon = null;
-let selected = -1;
+let sats = null;
+let selected = -1; // NEO contact index
+let selectedBody = -1; // system-map body index
 let mode = 'neo';
 let neoStatusLine = '';
+let flybyPos = null;
 const tmpVec = new THREE.Vector3();
 
 // Each mode keeps its own camera framing; switching restores it.
@@ -85,17 +89,18 @@ Promise.all([
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     return r.json();
   }),
-  // Ephemeris is an enhancement — degrade to NEO-only if it's missing.
+  // Enhancement layers — degrade gracefully when missing.
   fetch('./data/ephemeris.json').then((r) => (r.ok ? r.json() : null)).catch(() => null),
+  fetch('./data/satellites.json').then((r) => (r.ok ? r.json() : null)).catch(() => null),
 ])
-  .then(([neoData, eph]) => {
+  .then(([neoData, eph, satData]) => {
     field = createAsteroidField(neoData);
     scene.add(field.points);
     radar = createRadar({
       canvas: document.getElementById('radar-canvas'),
       field,
       data: neoData,
-      onSelect: selectIndex,
+      onSelect: (i) => userSelectNeo(i),
     });
 
     if (eph) {
@@ -110,21 +115,56 @@ Promise.all([
       document.getElementById('tab-system').disabled = false;
     }
 
-    neoStatusLine = `TRACKING ${neoData.count} OBJECTS > ${neoData.min_diameter_m}M // WINDOW ${neoData.window_start} - ${neoData.window_end}`;
-    hud.init(neoData);
+    if (satData && satData.count) {
+      sats = createSatellites(env.neoGroup, satData);
+    }
 
-    // Debug/deep-links: ?lock=N pre-selects a contact, ?mode=system opens the map.
+    neoStatusLine =
+      `TRACKING ${neoData.count} OBJECTS > ${neoData.min_diameter_m}M // WINDOW ${neoData.window_start} - ${neoData.window_end}` +
+      (sats ? ` // ${sats.count} SATS` : '');
+    hud.init(neoData);
+    hud.status(neoStatusLine);
+
+    // Debug/deep-links: ?lock=N pre-selects a contact, ?mode=system opens
+    // the map, ?body=mars pre-selects a system body.
     const params = new URLSearchParams(location.search);
     const lock = params.get('lock');
-    if (lock !== null) selectIndex(Math.min(parseInt(lock, 10) || 0, field.count - 1));
-    if (params.get('mode') === 'system' && systemMap) store.set({ mode: 'system' });
+    if (lock !== null) selectNeo(Math.min(parseInt(lock, 10) || 0, field.count - 1));
+    if ((params.get('mode') === 'system' || params.get('body')) && systemMap) {
+      store.set({ mode: 'system' });
+      const bodyName = params.get('body');
+      if (bodyName) {
+        selectBody(systemMap.bodies.findIndex((b) => b.name === bodyName.toLowerCase()));
+      }
+    }
   })
   .catch((err) => hud.fatal(`DATA LINK FAILURE // ${err.message}`));
 
-document.getElementById('tab-neo').addEventListener('click', () => store.set({ mode: 'neo' }));
-document.getElementById('tab-system').addEventListener('click', () => store.set({ mode: 'system' }));
+// ---- Mode tabs + sound toggle ----
+
+document.getElementById('tab-neo').addEventListener('click', () => {
+  sfx.mode();
+  store.set({ mode: 'neo' });
+});
+document.getElementById('tab-system').addEventListener('click', () => {
+  sfx.mode();
+  store.set({ mode: 'system' });
+});
 document.getElementById('tab-launches').addEventListener('click', () => {
+  sfx.mode();
   location.href = './launches.html';
+});
+
+const soundTab = document.getElementById('tab-sound');
+function renderSoundTab() {
+  soundTab.textContent = sfx.enabled ? 'SND ON' : 'SND OFF';
+  soundTab.classList.toggle('active', sfx.enabled);
+}
+renderSoundTab();
+soundTab.addEventListener('click', () => {
+  sfx.setEnabled(!sfx.enabled);
+  sfx.toggle(sfx.enabled);
+  renderSoundTab();
 });
 
 store.subscribe((s) => {
@@ -143,16 +183,23 @@ store.subscribe((s) => {
   labels.hideAll();
 
   if (neo) {
+    flyby.setTarget(selected, field);
     if (selected >= 0 && field) {
       hud.showTarget(field.objects[selected]);
-      brackets.classList.remove('hidden');
-      flyby.setTarget(selected, field);
+      showBrackets(field.objects[selected].is_hazardous ? 'var(--c-red)' : 'var(--c-green)');
+    } else {
+      hud.clearTarget();
+      brackets.classList.add('hidden');
     }
     if (neoStatusLine) hud.status(neoStatusLine);
   } else {
-    hud.clearTarget();
-    brackets.classList.add('hidden');
     flyby.setTarget(-1, null);
+    if (selectedBody >= 0 && systemMap) {
+      applyBodySelection();
+    } else {
+      hud.clearTarget();
+      brackets.classList.add('hidden');
+    }
     if (systemMap) {
       hud.status(`HELIOCENTRIC PLOT // ${systemMap.bodies.length} BODIES // LOG-COMPRESSED RADII`);
     }
@@ -163,7 +210,14 @@ store.subscribe((s) => {
   controls.maxDistance = neo ? 600 : 900;
 });
 
-function selectIndex(i) {
+// ---- Selection ----
+
+function showBrackets(color) {
+  brackets.style.color = color;
+  brackets.classList.remove('hidden');
+}
+
+function selectNeo(i) {
   selected = i;
   if (radar) radar.setSelected(i);
   flyby.setTarget(i, field);
@@ -171,9 +225,30 @@ function selectIndex(i) {
   if (i >= 0 && field) {
     const obj = field.objects[i];
     hud.showTarget(obj);
-    brackets.style.color = obj.is_hazardous ? 'var(--c-red)' : 'var(--c-green)';
-    brackets.classList.remove('hidden');
+    showBrackets(obj.is_hazardous ? 'var(--c-red)' : 'var(--c-green)');
   } else {
+    hud.clearTarget();
+    brackets.classList.add('hidden');
+  }
+}
+
+function userSelectNeo(i) {
+  selectNeo(i);
+  if (i >= 0) sfx.lock(field.objects[i].is_hazardous);
+  else sfx.unlock();
+}
+
+function applyBodySelection() {
+  const b = systemMap.bodies[selectedBody];
+  const p = b.info.pos;
+  hud.showBody(b.info, Math.hypot(p[0], p[1], p[2]));
+  showBrackets('var(--c-cyan)');
+}
+
+function selectBody(i) {
+  selectedBody = i;
+  if (i >= 0 && systemMap) applyBodySelection();
+  else {
     hud.clearTarget();
     brackets.classList.add('hidden');
   }
@@ -188,8 +263,8 @@ function worldToScreen(v) {
   ];
 }
 
-// ---- Picking: shader-driven positions, so we project CPU-side copies
-// of the orbit math instead of raycasting against stale geometry. ----
+// ---- Picking: NEO contacts use CPU mirrors of the shader orbit math;
+// system bodies are static meshes, projected the same way. ----
 
 const PICK_RADIUS_PX = 18;
 let downX = 0;
@@ -201,28 +276,49 @@ renderer.domElement.addEventListener('pointerdown', (e) => {
 });
 
 renderer.domElement.addEventListener('pointerup', (e) => {
-  // Ignore orbit drags; picking is NEO-mode only.
-  if (mode !== 'neo' || !field) return;
-  if (Math.hypot(e.clientX - downX, e.clientY - downY) > 5) return;
+  if (Math.hypot(e.clientX - downX, e.clientY - downY) > 5) return; // orbit drag
 
-  const t = clock.elapsedTime;
-  let best = -1;
-  let bestDist = PICK_RADIUS_PX;
-  for (let i = 0; i < field.count; i++) {
-    const screen = worldToScreen(field.getPosition(i, t, tmpVec));
-    if (!screen) continue;
-    const d = Math.hypot(screen[0] - e.clientX, screen[1] - e.clientY);
-    if (d < bestDist) {
-      bestDist = d;
-      best = i;
+  if (mode === 'neo' && field) {
+    const t = clock.elapsedTime;
+    let best = -1;
+    let bestDist = PICK_RADIUS_PX;
+    for (let i = 0; i < field.count; i++) {
+      const screen = worldToScreen(field.getPosition(i, t, tmpVec));
+      if (!screen) continue;
+      const d = Math.hypot(screen[0] - e.clientX, screen[1] - e.clientY);
+      if (d < bestDist) {
+        bestDist = d;
+        best = i;
+      }
     }
+    userSelectNeo(best);
+  } else if (mode === 'system' && systemMap) {
+    let best = -1;
+    let bestDist = PICK_RADIUS_PX + 6;
+    systemMap.bodies.forEach((b, i) => {
+      const screen = worldToScreen(b.pos);
+      if (!screen) return;
+      const d = Math.hypot(screen[0] - e.clientX, screen[1] - e.clientY);
+      if (d < bestDist) {
+        bestDist = d;
+        best = i;
+      }
+    });
+    selectBody(best);
+    if (best >= 0) sfx.lock(false);
+    else sfx.unlock();
   }
-  selectIndex(best);
 });
 
 function updateBrackets(t) {
-  if (selected < 0 || !field) return;
-  const screen = worldToScreen(field.getPosition(selected, t, tmpVec));
+  let screen = null;
+  if (mode === 'neo' && selected >= 0 && field) {
+    screen = worldToScreen(field.getPosition(selected, t, tmpVec));
+  } else if (mode === 'system' && selectedBody >= 0 && systemMap) {
+    screen = worldToScreen(systemMap.bodies[selectedBody].pos);
+  } else {
+    return;
+  }
   if (!screen) {
     brackets.style.opacity = '0';
     return;
@@ -247,7 +343,9 @@ window.addEventListener('resize', () => {
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
   composer.setSize(window.innerWidth, window.innerHeight);
-  if (field) field.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  const pr = Math.min(window.devicePixelRatio, 2);
+  if (field) field.setPixelRatio(pr);
+  if (sats) sats.setPixelRatio(pr);
   if (radar) radar.resize();
 });
 
@@ -255,6 +353,7 @@ window.addEventListener('beforeunload', () => {
   if (field) field.dispose();
   if (systemMap) systemMap.dispose();
   if (moon) moon.dispose();
+  if (sats) sats.dispose();
   flyby.dispose();
   env.dispose();
   renderer.dispose();
@@ -269,10 +368,8 @@ function animate() {
   controls.update();
   env.update(dt);
   if (mode === 'neo') {
-    if (field) {
-      field.update(t);
-      updateBrackets(t);
-    }
+    if (field) field.update(t);
+    if (sats) sats.update(t);
     if (radar) radar.update(t);
     flybyPos = flyby.update(t);
     hud.tickCountdown();
@@ -280,6 +377,7 @@ function animate() {
     systemMap.update(dt);
     flybyPos = null;
   }
+  updateBrackets(t);
   updateLabels();
   composer.render();
 }

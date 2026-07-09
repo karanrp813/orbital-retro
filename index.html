@@ -29,19 +29,13 @@
       <button id="tab-neo" class="tab active" type="button">NEO TRACK</button>
       <button id="tab-system" class="tab" type="button" disabled>SYSTEM MAP</button>
       <button id="tab-launches" class="tab" type="button">LAUNCH DIR</button>
+      <button id="tab-sound" class="tab" type="button">SND ON</button>
     </nav>
   </header>
 
   <aside id="target-panel" class="hud-panel scanline hidden">
-    <div class="panel-title">// TARGET LOCK</div>
-    <div class="row"><span class="lbl">DESIG</span><span class="val" id="t-name"></span></div>
-    <div class="row"><span class="lbl">DIAMETER</span><span class="val" id="t-diam"></span></div>
-    <div class="row"><span class="lbl">VELOCITY</span><span class="val" id="t-vel"></span></div>
-    <div class="row"><span class="lbl">MISS DIST</span><span class="val" id="t-miss"></span></div>
-    <div class="row"><span class="lbl">APPROACH</span><span class="val" id="t-date"></span></div>
-    <div class="row"><span class="lbl">T-MINUS</span><span class="val" id="t-tminus"></span></div>
-    <div class="row"><span class="lbl">HAZARD</span><span class="val" id="t-hazard"></span></div>
-    <div class="row"><span class="lbl">SRC</span><span class="val">NASA NEOWS</span></div>
+    <div class="panel-title" id="panel-title">// TARGET LOCK</div>
+    <div id="panel-rows"></div>
   </aside>
 
   <aside id="radar-panel" class="hud-panel scanline">

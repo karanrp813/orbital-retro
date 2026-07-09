@@ -47,7 +47,7 @@ export function createSystemMap(scene, eph) {
     compressPoint(b.pos[0], b.pos[1], b.pos[2], tmp);
     mesh.position.copy(tmp);
     group.add(mesh);
-    bodies.push({ name: b.name, label: b.label, pos: mesh.position, mesh });
+    bodies.push({ name: b.name, label: b.label, pos: mesh.position, mesh, info: b });
 
     if (b.name === 'saturn') {
       const pts = [];
